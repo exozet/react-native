@@ -25,7 +25,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 
 @end
 
-@interface RCTWebView : RCTView
+@interface RCTWebView : RCTView<UIScrollViewDelegate>
 
 @property (nonatomic, weak) id<RCTWebViewDelegate> delegate;
 

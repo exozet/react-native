@@ -52,6 +52,9 @@ import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.events.ContentSizeChangeEvent;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.react.views.scroll.OnScrollDispatchHelper;
+import com.facebook.react.views.scroll.ScrollEvent;
+import com.facebook.react.views.scroll.ScrollEventType;
 import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
 import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
 import com.facebook.react.views.webview.events.TopLoadingStartEvent;
@@ -127,6 +130,8 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
     public void onPageStarted(WebView webView, String url, Bitmap favicon) {
       super.onPageStarted(webView, url, favicon);
       mLastLoadFailed = false;
+
+      WebView.setWebContentsDebuggingEnabled(true);
 
       dispatchEvent(
           webView,
@@ -218,6 +223,8 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
    * to call {@link WebView#destroy} on activity destroy event and also to clear the client
    */
   protected static class ReactWebView extends WebView implements LifecycleEventListener {
+
+    private final OnScrollDispatchHelper mOnScrollDispatchHelper = new OnScrollDispatchHelper();
     protected @Nullable String injectedJS;
     protected boolean messagingEnabled = false;
     protected @Nullable ReactWebViewClient mReactWebViewClient;
@@ -317,13 +324,33 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
         }
 
         loadUrl("javascript:(" +
-          "window.originalPostMessage = window.postMessage," +
-          "window.postMessage = function(data) {" +
+          "window.postMessageNative = function(data) {" +
             BRIDGE_NAME + ".postMessage(String(data));" +
           "}" +
         ")");
       }
     }
+
+    @Override
+    protected void onScrollChanged(int x, int y, int oldX, int oldY) {
+      super.onScrollChanged(x, y, oldX, oldY);
+      if (mOnScrollDispatchHelper.onScrollChanged(x, y)) {
+        ReactContext reactContext = (ReactContext) this.getContext();
+        reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(
+                ScrollEvent.obtain(
+                        this.getId(),
+                        ScrollEventType.SCROLL,
+                        this.getScrollX(),
+                        this.getScrollY(),
+                        mOnScrollDispatchHelper.getXFlingVelocity(),
+                        mOnScrollDispatchHelper.getYFlingVelocity(),
+                        this.computeHorizontalScrollRange(),
+                        this.computeVerticalScrollRange(),
+                        this.getWidth(),
+                        this.getHeight()));
+      }
+    }
+
 
     public void onMessage(String message) {
       dispatchEvent(this, new TopMessageEvent(this.getId(), message));
@@ -358,7 +385,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   @Override
   protected WebView createViewInstance(ThemedReactContext reactContext) {
     ReactWebView webView = createReactWebViewInstance(reactContext);
-    webView.setWebChromeClient(new WebChromeClient() {
+    webView.setWebChromeClient(new VideoWebChromeClient() {
       @Override
       public boolean onConsoleMessage(ConsoleMessage message) {
         if (ReactBuildConfig.DEBUG) {
