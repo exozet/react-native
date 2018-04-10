@@ -385,7 +385,7 @@ public class ReactWebViewManager extends SimpleViewManager<WebView> {
   @Override
   protected WebView createViewInstance(ThemedReactContext reactContext) {
     ReactWebView webView = createReactWebViewInstance(reactContext);
-    webView.setWebChromeClient(new VideoWebChromeClient() {
+    webView.setWebChromeClient(new VideoWebChromeClient(reactContext.getCurrentActivity(), webView) {
       @Override
       public boolean onConsoleMessage(ConsoleMessage message) {
         if (ReactBuildConfig.DEBUG) {
