@@ -21,6 +21,11 @@ NSString *const RCTJSNavigationScheme = @"react-js-navigation";
 
 static NSString *const kPostMessageHost = @"postMessage";
 
+#define RCT_SEND_SCROLL_EVENT(_eventName, _userData) { \
+NSString *eventName = NSStringFromSelector(@selector(_eventName)); \
+[self sendScrollEventWithName:eventName scrollView:_webView.scrollView userData:_userData]; \
+}
+
 @interface RCTWebView () <UIWebViewDelegate, RCTAutoInsetsProtocol>
 
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingStart;
@@ -28,6 +33,7 @@ static NSString *const kPostMessageHost = @"postMessage";
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingError;
 @property (nonatomic, copy) RCTDirectEventBlock onShouldStartLoadWithRequest;
 @property (nonatomic, copy) RCTDirectEventBlock onMessage;
+@property (nonatomic, copy) RCTDirectEventBlock onScroll;
 
 @end
 
@@ -50,6 +56,7 @@ static NSString *const kPostMessageHost = @"postMessage";
     _contentInset = UIEdgeInsetsZero;
     _webView = [[UIWebView alloc] initWithFrame:self.bounds];
     _webView.delegate = self;
+    _webView.scrollView.delegate = self;
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 /* __IPHONE_11_0 */
     if ([_webView.scrollView respondsToSelector:@selector(setContentInsetAdjustmentBehavior:)]) {
       _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
@@ -197,6 +204,44 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                       updateOffset:YES];
 }
 
+#pragma mark - UIScrollViewDelegates
+
+
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidScroll:)])
+    {
+        [_webView scrollViewDidScroll:scrollView];
+    }
+
+    // create event with scroll information
+     NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+     [event addEntriesFromDictionary: @{
+                                       @"contentOffset":  @{
+                                               @"x":[NSNumber numberWithFloat:scrollView.contentOffset.x],
+                                               @"y":[NSNumber numberWithFloat:scrollView.contentOffset.y]},
+                                       @"contentInset": @{
+                                               @"bottom": [NSNumber numberWithFloat:scrollView.contentInset.bottom],
+                                               @"left": [NSNumber numberWithFloat:scrollView.contentInset.left],
+                                               @"right": [NSNumber numberWithFloat:scrollView.contentInset.right],
+                                               @"top": [NSNumber numberWithFloat:scrollView.contentInset.top]},
+                                       @"contentSize": @{
+                                               @"width": [NSNumber numberWithFloat:scrollView.contentSize.width],
+                                               @"height": [NSNumber numberWithFloat:scrollView.contentSize.height]},
+                                       @"layoutMeasurement": @{
+                                               @"x": [NSNumber numberWithFloat:scrollView.frame.origin.x],
+                                               @"y": [NSNumber numberWithFloat:scrollView.frame.origin.y],
+                                               @"width": [NSNumber numberWithFloat:scrollView.frame.size.width],
+                                               @"height": [NSNumber numberWithFloat:scrollView.frame.size.height]},
+                                       @"zoomScale": [NSNumber numberWithFloat:scrollView.zoomScale]
+                                       }
+     ];
+
+    // send the event to JS
+    _onScroll(event);
+}
+
 #pragma mark - UIWebViewDelegate methods
 
 - (BOOL)webView:(__unused UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request
@@ -310,7 +355,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     #endif
     NSString *source = [NSString stringWithFormat:
       @"(function() {"
-        "window.originalPostMessage = window.postMessage;"
 
         "var messageQueue = [];"
         "var messagePending = false;"
@@ -321,7 +365,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
           "window.location = '%@://%@?' + encodeURIComponent(messageQueue.shift());"
         "}"
 
-        "window.postMessage = function(data) {"
+        "window.postMessageNative = function(data) {"
           "messageQueue.push(String(data));"
           "processQueue();"
         "};"
@@ -346,6 +390,130 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   else if (_onLoadingFinish && !webView.loading && ![webView.request.URL.absoluteString isEqualToString:@"about:blank"]) {
     _onLoadingFinish([self baseEvent]);
   }
+}
+
+
+- (void)scrollViewDidZoom:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidZoom:)])
+    {
+        [_webView scrollViewDidZoom:scrollView];
+    }
+
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewWillBeginDragging:)])
+    {
+        [_webView scrollViewWillBeginDragging:scrollView];
+    }
+}
+
+- (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewWillEndDragging:withVelocity:targetContentOffset:)])
+    {
+        [_webView scrollViewWillEndDragging:scrollView withVelocity:velocity targetContentOffset: targetContentOffset];
+    }
+}
+
+
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidEndDragging:willDecelerate:)])
+    {
+        [_webView scrollViewDidEndDragging:scrollView willDecelerate:decelerate];
+    }
+}
+
+
+- (void)scrollViewWillBeginDecelerating:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewWillBeginDecelerating:)])
+    {
+        [_webView scrollViewWillBeginDecelerating:scrollView];
+    }
+}
+
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidEndDecelerating:)])
+    {
+        [_webView scrollViewDidEndDecelerating:scrollView];
+    }
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidEndScrollingAnimation:)])
+    {
+        [_webView scrollViewDidEndScrollingAnimation:scrollView];
+    }
+
+}
+
+- (nullable UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(viewForZoomingInScrollView:)])
+    {
+        return [_webView viewForZoomingInScrollView:scrollView];
+    }
+
+    return nil;
+}
+
+
+- (void)scrollViewWillBeginZooming:(UIScrollView *)scrollView withView:(nullable UIView *)view
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewWillBeginZooming:withView:)])
+    {
+        [_webView scrollViewWillBeginZooming:scrollView withView:view];
+    }
+}
+
+
+- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView withView:(nullable UIView *)view atScale:(CGFloat)scale
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidEndZooming:withView:atScale:)])
+    {
+        [_webView scrollViewDidEndZooming:scrollView withView:view atScale:scale];
+    }
+
+}
+
+- (BOOL)scrollViewShouldScrollToTop:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewShouldScrollToTop:)])
+    {
+        return [_webView scrollViewShouldScrollToTop:scrollView];
+    }
+
+    return YES;
+}
+
+
+
+- (void)scrollViewDidScrollToTop:(UIScrollView *)scrollView
+{
+    // we've stolen the scroll view delegate from webview, so we have to notify the webview about this event
+    if ([_webView respondsToSelector:@selector(scrollViewDidScrollToTop:)])
+    {
+        [_webView scrollViewDidScrollToTop:scrollView];
+    }
+
 }
 
 @end

@@ -121,6 +121,7 @@ class WebView extends React.Component {
         onLoadingError: true,
         onLoadingFinish: true,
         onMessage: true,
+        onScroll: true,
         messagingEnabled: PropTypes.bool,
       },
     };
@@ -206,6 +207,10 @@ class WebView extends React.Component {
      * Function that is invoked when the `WebView` load fails.
      */
     onError: PropTypes.func,
+    /**
+     * Fires at most once per frame during scrolling.
+     */
+    onScroll: PropTypes.func,
     /**
      * Boolean value that determines whether the web view bounces
      * when it reaches the edge of the content. The default value is `true`.
@@ -483,6 +488,7 @@ class WebView extends React.Component {
         onLoadingError={this._onLoadingError}
         messagingEnabled={messagingEnabled}
         onMessage={this._onMessage}
+        onScroll={this._onScroll}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         scalesPageToFit={this.props.scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
@@ -625,6 +631,11 @@ class WebView extends React.Component {
   _onMessage = (event: Event) => {
     const {onMessage} = this.props;
     onMessage && onMessage(event);
+  };
+
+  _onScroll = (event: Event) => {
+    const {onScroll} = this.props;
+    onScroll && onScroll(event);
   }
 }
 

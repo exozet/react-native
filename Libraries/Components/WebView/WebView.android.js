@@ -59,6 +59,7 @@ class WebView extends React.Component {
     onLoadEnd: PropTypes.func,
     onLoadStart: PropTypes.func,
     onError: PropTypes.func,
+    onScroll: PropTypes.func,
     automaticallyAdjustContentInsets: PropTypes.bool,
     contentInset: EdgeInsetsPropType,
     onNavigationStateChange: PropTypes.func,
@@ -310,6 +311,7 @@ class WebView extends React.Component {
         onLoadingStart={this.onLoadingStart}
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
+        onScroll={this.onScroll}
         testID={this.props.testID}
         mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
         allowUniversalAccessFromFileURLs={this.props.allowUniversalAccessFromFileURLs}
@@ -430,7 +432,13 @@ class WebView extends React.Component {
   onMessage = (event: Event) => {
     const {onMessage} = this.props;
     onMessage && onMessage(event);
+  };
+
+  onScroll = (event: Event) => {
+    const {onScroll} = this.props;
+    onScroll && onScroll(event);
   }
+
 }
 
 const RCTWebView = requireNativeComponent('RCTWebView', WebView, WebView.extraNativeComponentConfig);
